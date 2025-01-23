@@ -2,9 +2,11 @@ from tradingview_screener import Query, col
 from alpaca.data import StockHistoricalDataClient, StockBarsRequest
 from datetime import datetime, timedelta, tzinfo, timezone  
 from alpaca.data.timeframe import TimeFrame
+
 import load_dotenv
 import os
 import numpy as np
+import pandas as pd
 
 
 class MomentumScreener:
@@ -85,6 +87,8 @@ class MomentumScreener:
         bars = data_client.get_stock_bars(request_params).df
 
         qualifying_companies = []
+        volatilities = [] # store the 42-day volatilities of the companies
+
         for company in companies_ath: 
             cur_data = bars.xs(company, level=0)
             avg_dollar_vol = (cur_data['close'].dot(cur_data['volume']))/len(cur_data)
@@ -92,13 +96,48 @@ class MomentumScreener:
             if avg_dollar_vol >= 1e6 and last_close >= 10: # filter logic per page 4 of the paper
                 qualifying_companies.append(company)
 
+                # Calculate the 42-day volatility
+                returns = np.log(cur_data['close']/cur_data['close'].shift(1))
+                daily_std = returns.std()
+                volatilities.append(daily_std*np.sqrt(42)) # annualized to 42 days (page 18)
+
+        filtered_bars = bars.loc[qualifying_companies]
+        last_close_df = filtered_bars.groupby('symbol').last()
+        last_close_df['volatility'] = volatilities
+
         # Return only the qualifying companies
-        return qualifying_companies, bars.loc[qualifying_companies]
+        return qualifying_companies, last_close_df.reset_index()
+    
+def update_weights(new_companies_df: pd.DataFrame) -> pd.DataFrame:
+    '''
+    Update the screener with the latest data and update portfolio weights.
+    '''
+    df1 = pd.read_csv('tickers') if os.path.exists('tickers') else pd.DataFrame() # read the existing screener data
+    if os.path.exists('tickers'):
+        df1.update(new_companies_df)
+    else:
+        df1 = new_companies_df
+    
+    df1['weights'] = (0.3/df1['volatility']) * (1/max(200, len(df1))) # calculate the weights (page 19) 
+
+    df1['weights'] = df1['weights'] * max(1, 2/df1['weights'].sum()) # scale the weights to account for leverage (page 19)
+    
+    df1.to_csv('tickers', index=False) # save the updated screener data
+
+    return df1
+
+# Workflow:
+# 1. Run the screener to get the list of companies that are at all time highs.
+# 2. Update the weights of the companies in the screener.
+# 3. Run exit strategy to sell the companies that are need to be exited
+# 4. Run trading bot to buy the companies that are in the screener and sell the companies that are in the exit strategy.
+
 
 if __name__ == "__main__":
     screener = MomentumScreener()
 
-    tickers, _ = screener.screen()
+    tickers, df = screener.screen()
 
-    print(tickers)
+    newdf = update_weights(df)
+    print(newdf)
 
