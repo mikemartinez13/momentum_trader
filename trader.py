@@ -1,6 +1,8 @@
 # given weights and tickers
 
 from alpaca.trading.client import TradingClient
+from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
+from alpaca.trading.enums import OrderSide, TimeInForce
 import pandas as pd
 import numpy as np
 import load_dotenv
@@ -15,16 +17,41 @@ class Trader:
         self.secret = os.getenv("ALPACA_SECRET")
         self.trading_client = TradingClient(self.key, self.secret)
 
-    def execute(self, trades):
+    def trade_prep(self, trades: pd.DataFrame) -> bool:
         '''
-        Execute trades for the strategy based on newly updated weights
+        Prepares trades for the strategy based on newly updated weights
 
         Returns:
         - status: True if all trades completed, False otherwise
         '''
 
+# column called symbol and column called weights
+
+        for trade in trades:
+            order = self.market_order_setup(trade)
+            
         return True
         
+
+    def market_order_setup(self, trade) -> MarketOrderRequest:
+        '''
+        Helper method to setup trade object
+
+        Returns:
+        - order: the MarketOrder object to be added to the tradelist
+        '''
+
+        ticker = trade["symbol"]
+        weight = trade["weights"]
+
+        shares = 1 # multiply weight by portfolio AUM, divide by last share price
+
+        trade_size = 1 # get current position and subtract new position
+
+    def exit_positions(self):
+        '''
+        Exits positions when determined by exit strategy
+        '''
 
     def liquidate(self):
         '''
