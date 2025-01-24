@@ -3,6 +3,9 @@
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
+from alpaca.data import StockHistoricalDataClient
+from alpaca.data.requests import StockLatestTradeRequest
+from alpaca.data.timeframe import TimeFrame
 import pandas as pd
 import numpy as np
 import load_dotenv
@@ -16,6 +19,8 @@ class Trader:
         self.key = os.getenv("ALPACA_KEY")
         self.secret = os.getenv("ALPACA_SECRET")
         self.trading_client = TradingClient(self.key, self.secret)
+        self.account = self.trading_client.get_account()
+        self.data_client = StockHistoricalDataClient(self.key, self.secret)
 
     def trade_prep(self, trades: pd.DataFrame) -> bool:
         '''
@@ -41,12 +46,32 @@ class Trader:
         - order: the MarketOrder object to be added to the tradelist
         '''
 
+        port_aum = self.account.portfolio_value # get current AUM
         ticker = trade["symbol"]
         weight = trade["weights"]
 
-        shares = 1 # multiply weight by portfolio AUM, divide by last share price
+        # get latest price of desired stock
+        trade_req = StockLatestTradeRequest(symbol_or_symbols=ticker)
+        latest_trade = self.data_client.get_stock_latest_trade(trade_req)
+        latest_price = latest_trade[ticker].price
 
-        trade_size = 1 # get current position and subtract new position
+        shares = (weight * port_aum) / latest_price # calculate # of shares required for correct sizing
+
+
+        trade_size = 0 # initialize to 0
+        open_positions = self.trading_client.get_all_positions()
+
+        for position in open_positions:
+            if position.symbol == ticker:
+                trade_size = shares - position.qty
+
+        return MarketOrderRequest(
+            symbol = ticker,
+            qty = trade_size,
+            side = OrderSide.SELL if trade_size < 0 else OrderSide.BUY,
+            TimeInForce = TimeInForce.DAY
+        )
+
 
     def exit_positions(self):
         '''
