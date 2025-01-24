@@ -30,12 +30,21 @@ class Trader:
         - status: True if all trades completed, False otherwise
         '''
 
-# column called symbol and column called weights
+        orders = []
 
         for trade in trades:
             order = self.market_order_setup(trade)
+            orders.append(order)
             
         return True
+    
+
+    def execute(self, orders: list):
+        '''
+        Execute trades as determined by trade_prep
+        '''
+
+        
         
 
     def market_order_setup(self, trade) -> MarketOrderRequest:
