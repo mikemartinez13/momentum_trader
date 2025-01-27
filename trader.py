@@ -1,5 +1,6 @@
 # given weights and tickers
 
+import alpaca.common.exceptions
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
@@ -22,7 +23,7 @@ class Trader:
         self.account = self.trading_client.get_account()
         self.data_client = StockHistoricalDataClient(self.key, self.secret)
 
-    def trade_prep(self, trades: pd.DataFrame) -> bool:
+    def trade_procedure(self, trades: pd.DataFrame):
         '''
         Prepares trades for the strategy based on newly updated weights
 
@@ -35,8 +36,8 @@ class Trader:
         for trade in trades:
             order = self.market_order_setup(trade)
             orders.append(order)
-            
-        return True
+        
+        self.execute(orders=orders)
     
 
     def execute(self, orders: list):
@@ -44,8 +45,9 @@ class Trader:
         Execute trades as determined by trade_prep
         '''
 
-        
-        
+        for order in orders:
+            self.trading_client.submit_order(order)
+
 
     def market_order_setup(self, trade) -> MarketOrderRequest:
         '''
@@ -82,17 +84,11 @@ class Trader:
         )
 
 
-    def exit_positions(self):
-        '''
-        Exits positions when determined by exit strategy
-        '''
-
     def liquidate(self):
         '''
         Exit all positions
         '''
         self.trading_client.close_all_position(True)
-
 
 
 if __name__ == "__main__":
