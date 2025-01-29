@@ -91,15 +91,23 @@ class MomentumScreener:
 
         for company in companies_ath: 
             cur_data = bars.xs(company, level=0)
+            if len(cur_data) == 1:
+                continue # if there is only one data point, we cannot calculate the average dollar volume or volatility
             avg_dollar_vol = (cur_data['close'].dot(cur_data['volume']))/len(cur_data)
             last_close = cur_data['close'].iloc[-1]
             if avg_dollar_vol >= 1e6 and last_close >= 10: # filter logic per page 4 of the paper
                 qualifying_companies.append(company)
 
                 # Calculate the 42-day volatility
+
                 returns = np.log(cur_data['close']/cur_data['close'].shift(1))
                 daily_std = returns.std()
                 volatilities.append(daily_std*np.sqrt(42)) # annualized to 42 days (page 18)
+                # if company == 'SFD': # this stock just IPOed, so there are no returns to compare against. It is also very illiquid. 
+                #     print('Cur data:', cur_data)
+                #     print('\nReturns:', returns)
+                #     print(daily_std)
+                #     print(daily_std*np.sqrt(42))
 
         filtered_bars = bars.loc[qualifying_companies]
         last_close_df = filtered_bars.groupby('symbol').last()
@@ -122,7 +130,9 @@ def update_weights(new_companies_df: pd.DataFrame) -> pd.DataFrame:
 
     df1['weights'] = df1['weights'] * max(1, 2/df1['weights'].sum()) # scale the weights to account for leverage (page 19)
     
-    df1.to_csv('tickers', index=False) # save the updated screener data
+    df1['weights'] = df1['weights'] / df1['weights'].sum() # normalize to 1 for Alpaca trading. 
+
+    df1.to_csv('tickers.csv', index=False) # save the updated screener data
 
     return df1
 
@@ -140,4 +150,6 @@ if __name__ == "__main__":
 
     newdf = update_weights(df)
     print(newdf)
+    print(sum(newdf['weights']))
 
+    print(newdf.loc[newdf['weights'].isna()])

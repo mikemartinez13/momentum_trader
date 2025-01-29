@@ -78,7 +78,7 @@ class Trader:
 
         return MarketOrderRequest(
             symbol = ticker,
-            qty = trade_size,
+            qty = abs(trade_size),
             side = OrderSide.SELL if trade_size < 0 else OrderSide.BUY,
             TimeInForce = TimeInForce.DAY
         )
