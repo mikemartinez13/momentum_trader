@@ -37,7 +37,11 @@ class Trader:
             order = self.market_order_setup(trade)
             orders.append(order)
         
+        if(input("Y/n") != "Y"):
+            exit()
+
         self.execute(orders=orders)
+        print("Orders submitted")
     
 
     def execute(self, orders: list):
@@ -57,7 +61,7 @@ class Trader:
         - order: the MarketOrder object to be added to the tradelist
         '''
 
-        port_aum = self.account.portfolio_value # get current AUM
+        buying_power = self.account.buying_power # get current AUM
         ticker = trade["symbol"]
         weight = trade["weights"]
 
@@ -66,7 +70,7 @@ class Trader:
         latest_trade = self.data_client.get_stock_latest_trade(trade_req)
         latest_price = latest_trade[ticker].price
 
-        shares = (weight * port_aum) / latest_price # calculate # of shares required for correct sizing
+        shares = (weight * buying_power) / latest_price # calculate # of shares required for correct sizing
 
 
         trade_size = 0 # initialize to 0
@@ -90,6 +94,13 @@ class Trader:
         '''
         self.trading_client.close_all_position(True)
 
+    def cancel_all(self):
+        '''
+        Cancel all open orders
+        '''
+        self.trading_client.cancel_orders()
+
 
 if __name__ == "__main__":
     trader = Trader()
+    print(trader.account.portfolio_value)
