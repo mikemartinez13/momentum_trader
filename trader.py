@@ -37,7 +37,11 @@ class Trader:
             order = self.market_order_setup(trade)
             orders.append(order)
         
+        if(input("Y/n") != "Y"):
+            exit()
+
         self.execute(orders=orders)
+        print("Orders submitted")
     
 
     def execute(self, orders: list):
