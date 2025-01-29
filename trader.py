@@ -94,6 +94,12 @@ class Trader:
         '''
         self.trading_client.close_all_position(True)
 
+    def cancel_all(self):
+        '''
+        Cancel all open orders
+        '''
+        self.trading_client.cancel_orders()
+
 
 if __name__ == "__main__":
     trader = Trader()
