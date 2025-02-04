@@ -96,6 +96,10 @@ class Trader:
     def determine_exit(self, ticker, ath):
         '''
         Determine whether to close a position based on the exit criteria
+
+        Returns:
+        - 0 if position should be closed (or not traded i.e. not enough data)
+        - 1 if position should be help
         '''
 
     def calculateATR(self, ticker):
