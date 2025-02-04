@@ -4,8 +4,9 @@ from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
 from alpaca.data import StockHistoricalDataClient
-from alpaca.data.requests import StockLatestTradeRequest
+from alpaca.data.requests import StockLatestTradeRequest, StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
+from datetime import datetime
 import pandas as pd
 import numpy as np
 import load_dotenv
@@ -90,6 +91,105 @@ class Trader:
             side = OrderSide.SELL if trade_size < 0 else OrderSide.BUY,
             time_in_force = TimeInForce.DAY
         )
+
+
+    def determine_exit(self, ticker, ath):
+        '''
+        Determine whether to close a position based on the exit criteria
+        '''
+
+    def calculateATR(self, ticker):
+        '''
+        For a given ticker, calculate the ATR.
+
+        Returns:
+        - 0 if there is not enough data to calculate the ATR
+        - the ATR value if it can be calculated
+        '''
+
+        # 42 days of true ranges to build the ATR 
+        # if there aren't 42 days of data, then return 0
+        # multiply whatever weight is currently set times 0 if above or ATR condition met, else multiply by 1 
+
+        if ticker: # if we are calculating ATR for the first time - need to check if ATR is stored in the frame
+            true_ranges = []
+            # For each day in the 42-day range
+            for i in range(42):
+                days_ago = datetime.date.today() - datetime.timedelta(days=i)
+                days_ago_before = days_ago - datetime.timedelta(days=1)
+
+                request_params_day_of = StockBarsRequest( # get data for day of
+                    symbol_or_symbols=ticker,
+                    timeframe=TimeFrame.DAY,
+                    start=days_ago,
+                    end=days_ago
+                )
+
+                request_params_day_before = StockBarsRequest( # get data for day before
+                    symbol_or_symbols=ticker,
+                    timeframe=TimeFrame.DAY,
+                    start=days_ago_before,
+                    end=days_ago_before
+                )
+
+                # If data for this ticker does not exist days_ago
+                try:
+                    prev_bars = self.data_client.get_stock_bars(request_params_day_of).df
+                    bars = self.data_client.get_stock_bars(request_params_day_of).df
+                except:
+                    return 0
+                
+                # calculate the three TR components
+                t1 = bars['high'] - bars['low']
+                t2 = abs(bars['high'] - prev_bars['close'])
+                t3 = abs(prev_bars['close'] - bars['low'])
+                t = [t1, t2, t3]    
+                true_ranges.append(max(t)) 
+            
+            atr = np.mean(true_ranges) # calculate ATR
+            return atr
+        
+        else:
+            # get atr from database, multiply by 41, add todays true range, divide by 42
+            old_atr = 0 # get from database
+            
+            today = datetime.date.today()
+            yesterday = datetime.date.today() - datetime.timedelta(days=1)
+
+            request_params_day_of = StockBarsRequest( # get data for day of
+                    symbol_or_symbols=ticker,
+                    timeframe=TimeFrame.DAY,
+                    start=today,
+                    end=today
+                )
+
+            request_params_day_before = StockBarsRequest( # get data for day before
+                symbol_or_symbols=ticker,
+                timeframe=TimeFrame.DAY,
+                start=yesterday,
+                end=yesterday
+            )
+            
+            # check if data exists in alpaca
+            try:
+                prev_bars = self.data_client.get_stock_bars(request_params_day_of).df
+                bars = self.data_client.get_stock_bars(request_params_day_of).df
+            except:
+                return 0
+            
+            # calculate the three TR components
+            t1 = bars['high'] - bars['low']
+            t2 = abs(bars['high'] - prev_bars['close'])
+            t3 = abs(prev_bars['close'] - bars['low'])
+            t = [t1, t2, t3] 
+
+            atr = (41 * old_atr + max(t)) / 42
+            return atr
+
+
+        
+
+    # Helper functions
 
     def liquidate(self):
         '''
