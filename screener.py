@@ -116,39 +116,42 @@ class MomentumScreener:
         # Return only the qualifying companies
         return qualifying_companies, last_close_df.reset_index()
     
-def update_weights(new_companies_df: pd.DataFrame) -> pd.DataFrame:
-    '''
-    Update the screener with the latest data and update portfolio weights.
-    '''
-    df1 = pd.read_csv('tickers') if os.path.exists('tickers') else pd.DataFrame() # read the existing screener data
-    if os.path.exists('tickers'):
-        df1.update(new_companies_df)
-    else:
-        df1 = new_companies_df
-    
-    df1['weights'] = (0.3/df1['volatility']) * (1/max(200, len(df1))) # calculate the weights (page 19) 
+    def update_weights(self, new_companies_df: pd.DataFrame) -> pd.DataFrame:
+        '''
+        Update the screener with the latest data and update portfolio weights.
+        '''
+        df1 = pd.read_csv('tickers') if os.path.exists('tickers') else pd.DataFrame() # read the existing screener data
+        if os.path.exists('tickers'):
+            df1.update(new_companies_df)
+        else:
+            df1 = new_companies_df
+        
+        df1['weights'] = (0.3/df1['volatility']) * (1/max(200, len(df1))) # calculate the weights (page 19) 
 
-    df1['weights'] = df1['weights'] * max(1, 2/df1['weights'].sum()) # scale the weights to account for leverage (page 19)
-    
-    df1['weights'] = df1['weights'] / df1['weights'].sum() # normalize to 1 for Alpaca trading. 
+        df1['weights'] = df1['weights'] * max(1, 2/df1['weights'].sum()) # scale the weights to account for leverage (page 19)
+        
+        df1['weights'] = df1['weights'] / df1['weights'].sum() # normalize to 1 for Alpaca trading. 
 
-    df1.to_csv('tickers.csv', index=False) # save the updated screener data
+        df1.to_csv('tickers.csv', index=False) # save the updated screener data
 
-    return df1
+        return df1
 
 # Workflow:
-# 1. Run the screener to get the list of companies that are at all time highs.
-# 2. Update the weights of the companies in the screener.
-# 3. Run exit strategy to sell the companies that are need to be exited
+# 1. Run exit strategy to sell the companies that need to be exited
+    # - Run screener, then run exit screener 
+# 2. Run the screener to get the list of companies that are at all time highs.
+# 3. Update the weights of the companies in the screener. 
 # 4. Run trading bot to buy the companies that are in the screener and sell the companies that are in the exit strategy.
 
+# Bugs:
+# 1. We have issues with stocks that have no history. Their volatility is extremely low. It puts our whole port in shares. 
 
 if __name__ == "__main__":
     screener = MomentumScreener()
 
     tickers, df = screener.screen()
 
-    newdf = update_weights(df)
+    newdf = screener.update_weights(df)
     print(newdf)
     print(sum(newdf['weights']))
 
