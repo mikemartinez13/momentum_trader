@@ -117,4 +117,3 @@ class Trader:
 
 if __name__ == "__main__":
     trader = Trader()
-    print(trader.account.portfolio_value)
